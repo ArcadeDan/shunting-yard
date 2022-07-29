@@ -23,7 +23,7 @@ fn main() -> io::Result<()> {
         let tokenarray = tokenize(_stringbuffer.clone().trim().to_string());
         for mut _i in tokenarray {
             set_operator(&mut _i);
-            let _t = _i._token.clone().unwrap(); 
+            let _t = _i.token.clone().unwrap(); 
             match _t {
                 tokenizer::Token::Symbol(Operator) =>  _operator_stack.push(_i),
                 tokenizer::Token::Character => _output_queue.push_front(_i),
@@ -52,7 +52,11 @@ fn main() -> io::Result<()> {
             print!("{}", _f);
         }
         print!("\n");
-            
+        
+        //_output_queue.clear();
+        //_operator_stack.clear();
+        
+
         // END    program func buffer
         if _stringbuffer.trim().eq("!q") {break} // eq("!q\n") {break}
         _stringbuffer.clear();

@@ -1,14 +1,14 @@
 #[derive(PartialEq)]
-pub struct token_t {
-    pub _data: char,
-    pub _token: Option<Token>, //
+pub struct Token_t {
+    pub data: char,
+    pub token: Option<Token>, //
 }
 
 // tokenize a string
-pub fn tokenize(s: String) -> Vec<token_t> {
-    let mut x: Vec<token_t> = Vec::new();
+pub fn tokenize(s: String) -> Vec<Token_t> {
+    let mut x: Vec<Token_t> = Vec::new();
     for c in s.chars() {
-        let mut obj = token_t{_data: c, _token: Some(Token::Character)};
+        let mut obj = Token_t{data: c, token: Some(Token::Character)};
         //evaluate the type of token first
         
         x.push(obj);
@@ -29,8 +29,8 @@ pub enum Token {
 }
 
 
-pub fn is_operator(c: &token_t) -> Token {
-    match c._data {
+pub fn is_operator(c: &Token_t) -> Token {
+    match c.data {
         '+' => return Token::Symbol(Operator::Add),
         '-' => return Token::Symbol(Operator::Sub),
         '*' => return Token::Symbol(Operator::Mult),
@@ -40,13 +40,13 @@ pub fn is_operator(c: &token_t) -> Token {
   
 }
 
-pub fn set_operator(c: &mut token_t) {
-    c._token = Some(is_operator(c));
+pub fn set_operator(c: &mut Token_t) {
+    c.token = Some(is_operator(c));
     
 }
 
-pub fn get_prec(c: &token_t) -> u8  {
-    let x: u8 = match c._token.as_ref().unwrap() {
+pub fn get_prec(c: &Token_t) -> u8  {
+    let x: u8 = match c.token.as_ref().unwrap() {
         Token::Symbol(Operator::Add)  => 1,
         Token::Symbol(Operator::Sub)  => 1,
         Token::Symbol(Operator::Mult) => 2,
