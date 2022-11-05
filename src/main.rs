@@ -1,66 +1,113 @@
-use std::{io, collections::VecDeque, borrow::{Borrow, BorrowMut}};
+use std::{io, str::Chars, collections::VecDeque};
 
-mod Token;
-use Token::tokenizer::*;
+enum TSet {
+    INT, 
+    WORD, 
+    OPERATOR(Operators), 
+    WSPACE,
+    FLOAT
+}
 
-use crate::Token::tokenizer;
+enum Operators {
+    ADD, SUB, MUL, DIV
+}
+
+
+struct Token {
+    start_pos: usize,
+    end_pos: usize,
+    t_type: TSet,
+}
+
+
+
+impl Token {
+    fn new(start_pos: usize, end_pos: usize, t_type: TSet) -> Self {
+        Self { start_pos, end_pos, t_type }
+    }
+}
+
+fn is_operator(string_iter: &str, pos: usize) -> bool {
+    match string_iter.chars().nth(pos).unwrap() {
+        '+' => return true,
+        '-' => return true,
+        '*' => return true,
+        '/' => return true,
+         _  => return false
+    }
+    
+}
+
+fn guard_integer(c: char) -> bool {
+    return c.is_numeric() || [',', '_'].contains(&c)
+}
+
+fn tokenize_num(prev: Option<&mut Token>) -> Option<TSet> {
+    match prev {
+        None => Some(TSet::INT),
+        Some(last) => {
+            if let TSet::INT = last.t_type {
+                last.end_pos += 1;
+                return None; 
+            }
+        return Some(TSet::INT);
+        }
+    }
+}
+
+fn tokenize(mut accumulator: Vec<Token>, i: usize, c: char) -> Vec<Token> {
+    
+    let token = match c {
+        ' ' | '\n' => None,
+        '+' => Some(TSet::OPERATOR(Operators::ADD)),
+        '-' => Some(TSet::OPERATOR(Operators::SUB)),
+        '*' => Some(TSet::OPERATOR(Operators::MUL)),
+        '/' => Some(TSet::OPERATOR(Operators::DIV)),
+        _ if guard_integer(c) => tokenize_num(accumulator.last_mut()),
+        x => panic!("unknown token[{}:{}] '{}'", i, i, x)
+    };
+    
+    if let Some(TSet) = token {
+        accumulator.push(Token::new(i, i + 1, TSet))
+    }
+   
+    accumulator
+}
+
 
 
 fn main() -> io::Result<()> {
-    use std::{io::{stdin, stdout, Write,},
-            };
-    let mut _stringbuffer         = String::new();
-    let mut _operator_stack = Vec::<token_t>::new();
-    let mut _output_queue = VecDeque::<token_t>::new();
+    use std::{io::{stdin, stdout, Write,} };
+    
+    let mut buffer = String::new();
+    let mut operator_stack = Vec::<Token>::new();
+    let mut output_queue = VecDeque::<Token>::new();
 
     loop {
         stdout().write(b"> ")?;
         stdout().flush()?;
-        stdin().read_line(&mut _stringbuffer)?;
-        
-        
-        // BEGIN  Tokenizer section
-        let tokenarray = tokenize(_stringbuffer.clone().trim().to_string());
-        for mut _i in tokenarray {
-            set_operator(&mut _i);
-            let _t = _i.token.clone().unwrap(); 
-            match _t {
-                tokenizer::Token::Symbol(Operator) =>  _operator_stack.push(_i),
-                tokenizer::Token::Character => _output_queue.push_front(_i),
-                _ => {}
-            }
+        stdin().read_line(&mut buffer);
+
+        let tokens: Vec<Token> = buffer.chars()
+            .enumerate()
+            .fold(Vec::new(), |acc, (i, c)| tokenize(acc, i, c));
+
+        for i in tokens {
+            println!("Start: {} End: {}", i.start_pos, i.end_pos );
         }
-        // END   Tokenizer section
-        
-        // BEGIN  program func section
-        
-        let mut _final = Vec::<char>::new();
 
-            // first insert output queue's elements
-            while _output_queue.back() != None {
-                _final.push(_output_queue.back().unwrap()._data);
-                _output_queue.pop_back();
-            }
+        let mut resultvec = Vec::new();
 
-            while _operator_stack.first() != None {
-                _final.push(_operator_stack.first().unwrap()._data);
-                _operator_stack.pop();
-            }
-        
-        print!("> "); 
-        for _f in _final {
-            print!("{}", _f);
-        }
-        print!("\n");
-        
-        //_output_queue.clear();
-        //_operator_stack.clear();
+
+        if buffer.trim().eq("!q") {break}
+        buffer.clear();
         
 
-        // END    program func buffer
-        if _stringbuffer.trim().eq("!q") {break} // eq("!q\n") {break}
-        _stringbuffer.clear();
+
     }
+
+
     Ok(())
+    
 }
 
