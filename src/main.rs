@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, io, str::Chars};
+use std::{collections::VecDeque, io, str::Chars, ops::Deref};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 enum TSet {
@@ -110,77 +110,151 @@ fn tokenize(mut accumulator: Vec<Token>, i: usize, c: char) -> Vec<Token> {
     }
     accumulator
 }
+// shunting yard function | parses into postfix
+fn parse<'a>(tokens: &'a [Token]) -> VecDeque<&'a Token> {
+
+    let mut operator_stack = VecDeque::<Token>::new();
+    let mut output_queue = VecDeque::<Token>::new();
+
+    for toke in tokens {
+        match toke.t_type {
+            TSet::OPERATOR(_) => {
+                while let Some(op) = operator_stack.front() {
+                    if op.t_type == TSet::OPARAM {
+                        break;
+                    }   // condition:
+                    // when operator o2 other than the left parenthesis
+                    // at the top of the operator stack and (o2 has greater precedence
+                    // than o1 or they have same precedence and o1 is left-assoc)
+                        //
+
+                    match (
+                        op.t_type.getPrec(),
+                        toke.t_type.getPrec(),
+                        toke.t_type.getAssoc(),
+                    ) {
+                        (Some(o2), Some(o1), Some(Assoc::LEFT)) if (o2 >= o1) => {
+                            output_queue.push_back(*operator_stack.front().clone().unwrap());
+                            operator_stack.pop_front();
+                        }
+                        _ => {}
+                    }
+                }
+                operator_stack.push_front(toke.clone());
+            }
+            TSet::INT => output_queue.push_back(toke.clone()),
+            TSet::OPARAM => operator_stack.push_front(toke.clone()),
+            TSet::CPARAM => {
+                while let Some(op) = operator_stack.front() {
+                    if op.t_type == TSet::OPARAM {
+                        break;
+                    }
+                    output_queue.push_front(operator_stack.pop_front().unwrap());
+                } //operator_stack.push_front(toke.clone()),
+                operator_stack.pop_front();
+                if let Some(op) = operator_stack.front() {
+                    match op.t_type {
+                        TSet::OPERATOR(_) => {
+                            output_queue.push_front(operator_stack.pop_front().unwrap());
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => unreachable!()
+        }
+    }
+
+    for toke in tokens.iter() {
+        print!("[{:?}] ", toke.t_type);
+    }
+    print!("\n");
+    
+    for op in operator_stack.iter() {
+        print!("[{:?}]", op.t_type)
+    }
+    print!("\n");
+    for out in output_queue.iter() {
+        print!("[{:?}]", out.t_type)
+    }
+    print!("\n");
+    //let mut resultvec = Vec<>::new();
+    output_queue.extend(operator_stack.drain(..).rev());
+    return output_queue
+}
+
+
+fn to_int(data: &str, toke: &Token) -> f32 {
+    data[toke.start_pos..toke.end_pos]
+        .chars()
+        .filter(|&c| c != '_')
+        .collect::<String>()
+        .parse::<f32>()
+        .expect("Cannot parse integer")
+}
+
+fn evaluate<T: Deref<Target=Token>>(data: &str, postfix: &[T]) -> f32 {
+
+    let mut stack = Vec::new();
+    for token in postfix.iter() {
+        if let TSet::INT = token.t_type {
+            stack.push(to_int(data, token));
+            continue
+        }
+        let rhs = stack.pop();
+        let lhs = stack.pop();
+        
+
+        match (lhs, rhs) {
+            (Some(a), Some(b)) => {
+                let result = match token.t_type {
+                    TSet::OPERATOR(Operators::ADD) => a + b,
+                    TSet::OPERATOR(Operators::SUB) => a - b,
+                    TSet::OPERATOR(Operators::DIV) => a / b,
+                    TSet::OPERATOR(Operators::MUL) => a * b,
+                    TSet::OPERATOR(Operators::POW) => a.powf(b),
+                    _ => unreachable!()
+                };
+                stack.push(result);
+            },
+            (None, Some(b)) => return b,
+            (None, None) | (Some(_), None) => unreachable!()
+        }
+    }
+    stack.pop()
+        .expect("no integers left")
+}
 
 fn main() -> io::Result<()> {
     use std::io::{stdin, stdout, Write};
     let mut buffer = String::new();
-    let mut operator_stack = VecDeque::<Token>::new();
-    let mut output_queue = VecDeque::<Token>::new();
+    //let mut operator_stack = VecDeque::<Token>::new();
+    //let mut output_queue = VecDeque::<Token>::new();
 
     loop {
         stdout().write(b"> ")?;
         stdout().flush()?;
         stdin().read_line(&mut buffer);
 
+        // token creation
         let tokens: Vec<Token> = buffer
             .chars()
             .enumerate()
             .fold(Vec::new(), |acc, (i, c)| tokenize(acc, i, c));
-
-        for toke in &tokens {
-            match toke.t_type {
-                TSet::OPERATOR(_) => { 
-                    while let Some(op) = operator_stack.front() {
-                        if op.t_type == TSet::OPARAM {break;} 
-                        match (
-                            op.t_type.getPrec(),
-                            toke.t_type.getPrec(),
-                            toke.t_type.getAssoc(),
-                        ) {
-                            (Some(o2), Some(o1), Some(Assoc::LEFT)) if (o2 >= o1) => {
-                                output_queue.push_back(*operator_stack.front().clone().unwrap());
-                                operator_stack.pop_front();
-                            }
-                            _ => {}
-                        }
-                    }
-                    operator_stack.push_front(toke.clone());
-                }
-                TSet::INT => output_queue.push_back(toke.clone()),
-                TSet::OPARAM => operator_stack.push_front(toke.clone()),
-                TSet::CPARAM => {
-                    while let Some(op) = operator_stack.front() {
-                        if op.t_type == TSet::OPARAM {break; }
-                        output_queue.push_front(operator_stack.pop_front().unwrap());
-                        
-                    }//operator_stack.push_front(toke.clone()),
-                    operator_stack.pop_front();
-                    if let Some(op) = operator_stack.front() {
-                        match op.t_type {
-                            TSet::OPERATOR(_) => {
-                                output_queue.push_front(operator_stack.pop_front().unwrap());
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                _ => {}
-            }
+        
+        let postfix = parse(&tokens);
+        for out in postfix.iter() {
+            println!("{:?}", out);
         }
 
-        for i in &tokens {
-            print!("[{:?}] ", i.t_type);
-        }
-        print!("\n");
+        let result = evaluate(&buffer, &postfix);
+        println!("{}", result);
 
-        //let mut resultvec = Vec<>::new();
 
-        if buffer.trim().eq("!q") {
-            break;
-        }
+        if buffer.trim().eq("!q") { break; }
         buffer.clear();
-        output_queue.clear();
-        operator_stack.clear();
+        //output_queue.clear();
+        //operator_stack.clear();
     }
     Ok(())
 }
