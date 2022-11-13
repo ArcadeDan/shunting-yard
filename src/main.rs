@@ -93,7 +93,6 @@ fn tokenize(mut accumulator: Vec<Token>, i: usize, c: char) -> Vec<Token> {
     let token = match c {
         ' ' | '\n' => None,
         '+' => Some(TSet::OPERATOR(Operators::ADD)),
-        '-' => Some(TSet::OPERATOR(Operators::SUB)),
         '*' => Some(TSet::OPERATOR(Operators::MUL)),
         '/' => Some(TSet::OPERATOR(Operators::DIV)),
         '^' => Some(TSet::OPERATOR(Operators::POW)),
@@ -239,7 +238,7 @@ fn main() -> io::Result<()> {
             println!("{:?}", out);
         }
 
-        let result = evaluate(&buffer, postfix.into());
+        let result = evaluate(&buffer, (postfix.into()));
         println!("{}", result);
 
         if buffer.trim().eq("!q") {
