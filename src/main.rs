@@ -111,7 +111,7 @@ fn tokenize(mut accumulator: Vec<Token>, i: usize, c: char) -> Vec<Token> {
     accumulator
 }
 // shunting yard function | parses into postfix
-fn parse<'a>(tokens: &'a [Token]) -> VecDeque<&'a Token> {
+fn parse(tokens: &[Token]) -> VecDeque<Token> {
 
     let mut operator_stack = VecDeque::<Token>::new();
     let mut output_queue = VecDeque::<Token>::new();
@@ -164,7 +164,7 @@ fn parse<'a>(tokens: &'a [Token]) -> VecDeque<&'a Token> {
             _ => unreachable!()
         }
     }
-
+    /* 
     for toke in tokens.iter() {
         print!("[{:?}] ", toke.t_type);
     }
@@ -178,6 +178,7 @@ fn parse<'a>(tokens: &'a [Token]) -> VecDeque<&'a Token> {
         print!("[{:?}]", out.t_type)
     }
     print!("\n");
+    */
     //let mut resultvec = Vec<>::new();
     output_queue.extend(operator_stack.drain(..).rev());
     return output_queue
@@ -193,7 +194,7 @@ fn to_int(data: &str, toke: &Token) -> f32 {
         .expect("Cannot parse integer")
 }
 
-fn evaluate<T: Deref<Target=Token>>(data: &str, postfix: &[T]) -> f32 {
+fn evaluate(data: &str, postfix: VecDeque<Token>) -> f32 {
 
     let mut stack = Vec::new();
     for token in postfix.iter() {
@@ -247,7 +248,7 @@ fn main() -> io::Result<()> {
             println!("{:?}", out);
         }
 
-        let result = evaluate(&buffer, &postfix);
+        let result = evaluate(&buffer, dbg!(postfix));
         println!("{}", result);
 
 
