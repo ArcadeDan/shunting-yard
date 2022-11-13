@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, io, str::Chars, ops::Deref};
+use std::{collections::VecDeque, io, ops::Deref, str::Chars};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 enum TSet {
@@ -22,6 +22,7 @@ enum Operators {
 enum Assoc {
     LEFT,
     RIGHT,
+    NONE,
 }
 
 impl TSet {
@@ -45,6 +46,13 @@ impl TSet {
             _ => None,
         }
     }
+
+    fn is_operator(&self) -> bool {
+        match self {
+            Self::INT | Self::OPARAM | Self::CPARAM => false,
+            _ => true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -61,17 +69,6 @@ impl Token {
             end_pos,
             t_type,
         }
-    }
-}
-
-fn is_operator(string_iter: &str, pos: usize) -> bool {
-    match string_iter.chars().nth(pos).unwrap() {
-        '+' => return true,
-        '-' => return true,
-        '*' => return true,
-        '/' => return true,
-        '^' => return true,
-        _ => return false,
     }
 }
 
@@ -102,6 +99,14 @@ fn tokenize(mut accumulator: Vec<Token>, i: usize, c: char) -> Vec<Token> {
         '^' => Some(TSet::OPERATOR(Operators::POW)),
         '(' => Some(TSet::OPARAM),
         ')' => Some(TSet::CPARAM),
+        '-' => match accumulator.last() {
+            None => Some(TSet::INT),
+            // if a previous token exists
+            Some(x) => match x.t_type {
+                TSet::INT | TSet::CPARAM => Some(TSet::OPERATOR(Operators::SUB)),
+                _ => Some(TSet::INT),
+            },
+        },
         _ if guard_integer(c) => tokenize_num(accumulator.last_mut()),
         x => panic!("unknown token[{}:{}] '{}'", i, i, x),
     };
@@ -111,65 +116,55 @@ fn tokenize(mut accumulator: Vec<Token>, i: usize, c: char) -> Vec<Token> {
     accumulator
 }
 // shunting yard function | parses into postfix
-fn parse(tokens: &[Token]) -> VecDeque<Token> {
-
-    let mut operator_stack = VecDeque::<Token>::new();
-    let mut output_queue = VecDeque::<Token>::new();
-
+fn parse(tokens: & [Token]) -> Vec<Token> {
+    let mut operator_stack = Vec::<Token>::new();
+    let mut output_queue = Vec::<Token>::new();
+    
     for toke in tokens {
         match toke.t_type {
-            TSet::OPERATOR(_) => {
-                while let Some(op) = operator_stack.front() {
-                    if op.t_type == TSet::OPARAM {
-                        break;
-                    }   // condition:
-                    // when operator o2 other than the left parenthesis
-                    // at the top of the operator stack and (o2 has greater precedence
-                    // than o1 or they have same precedence and o1 is left-assoc)
-                        //
-
-                    match (
-                        op.t_type.getPrec(),
-                        toke.t_type.getPrec(),
-                        toke.t_type.getAssoc(),
-                    ) {
-                        (Some(o2), Some(o1), Some(Assoc::LEFT)) if (o2 >= o1) => {
-                            output_queue.push_back(*operator_stack.front().clone().unwrap());
-                            operator_stack.pop_front();
+            // condition:
+            // when operator o2 other than the left parenthesis
+            // at the top of the operator stack and (o2 has greater precedence
+            // than o1 or they have same precedence and o1 is left-assoc)
+            //
+            o1 if o1.is_operator() => {
+                while let Some(o2) = operator_stack.last() {
+                    let op = {
+                        let o2 = o2.to_owned().t_type;
+                        let po1 = o1.getPrec();
+                        let po2 = o2.getPrec();
+                        if po2 > po1 {
+                            operator_stack.pop().unwrap()
+                        } else if po2 == po1 && o1.getAssoc() == Some(Assoc::LEFT) {
+                            operator_stack.pop().unwrap()
+                        } else {
+                            break;
                         }
-                        _ => {}
-                    }
+                    };
+                    output_queue.push(op);
                 }
-                operator_stack.push_front(toke.clone());
+                operator_stack.push(*toke);
             }
-            TSet::INT => output_queue.push_back(toke.clone()),
-            TSet::OPARAM => operator_stack.push_front(toke.clone()),
+            TSet::INT => output_queue.push(*toke),
+            TSet::OPARAM => operator_stack.push(*toke),
             TSet::CPARAM => {
-                while let Some(op) = operator_stack.front() {
-                    if op.t_type == TSet::OPARAM {
-                        break;
-                    }
-                    output_queue.push_front(operator_stack.pop_front().unwrap());
+                while let Some(op) = operator_stack.last() {
+                    if op.t_type == TSet::OPARAM 
+                    { break }
+                    output_queue.push(operator_stack.pop().unwrap());
                 } //operator_stack.push_front(toke.clone()),
-                operator_stack.pop_front();
-                if let Some(op) = operator_stack.front() {
-                    match op.t_type {
-                        TSet::OPERATOR(_) => {
-                            output_queue.push_front(operator_stack.pop_front().unwrap());
-                        }
-                        _ => {}
-                    }
-                }
+                operator_stack.pop()
+                    .expect("Expected '(' in operator stack");  
             }
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
-    /* 
+    /*
     for toke in tokens.iter() {
         print!("[{:?}] ", toke.t_type);
     }
     print!("\n");
-    
+
     for op in operator_stack.iter() {
         print!("[{:?}]", op.t_type)
     }
@@ -181,9 +176,8 @@ fn parse(tokens: &[Token]) -> VecDeque<Token> {
     */
     //let mut resultvec = Vec<>::new();
     output_queue.extend(operator_stack.drain(..).rev());
-    return output_queue
+    return output_queue.clone()
 }
-
 
 fn to_int(data: &str, toke: &Token) -> f32 {
     data[toke.start_pos..toke.end_pos]
@@ -195,16 +189,14 @@ fn to_int(data: &str, toke: &Token) -> f32 {
 }
 
 fn evaluate(data: &str, postfix: VecDeque<Token>) -> f32 {
-
     let mut stack = Vec::new();
     for token in postfix.iter() {
         if let TSet::INT = token.t_type {
             stack.push(to_int(data, token));
-            continue
+            continue;
         }
         let rhs = stack.pop();
         let lhs = stack.pop();
-        
 
         match (lhs, rhs) {
             (Some(a), Some(b)) => {
@@ -214,16 +206,15 @@ fn evaluate(data: &str, postfix: VecDeque<Token>) -> f32 {
                     TSet::OPERATOR(Operators::DIV) => a / b,
                     TSet::OPERATOR(Operators::MUL) => a * b,
                     TSet::OPERATOR(Operators::POW) => a.powf(b),
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 };
                 stack.push(result);
-            },
+            }
             (None, Some(b)) => return b,
-            (None, None) | (Some(_), None) => unreachable!()
+            (None, None) | (Some(_), None) => unreachable!(),
         }
     }
-    stack.pop()
-        .expect("no integers left")
+    stack.pop().expect("no integers left")
 }
 
 fn main() -> io::Result<()> {
@@ -242,17 +233,18 @@ fn main() -> io::Result<()> {
             .chars()
             .enumerate()
             .fold(Vec::new(), |acc, (i, c)| tokenize(acc, i, c));
-        
+
         let postfix = parse(&tokens);
         for out in postfix.iter() {
             println!("{:?}", out);
         }
 
-        let result = evaluate(&buffer, dbg!(postfix));
+        let result = evaluate(&buffer, postfix.into());
         println!("{}", result);
 
-
-        if buffer.trim().eq("!q") { break; }
+        if buffer.trim().eq("!q") {
+            break;
+        }
         buffer.clear();
         //output_queue.clear();
         //operator_stack.clear();
