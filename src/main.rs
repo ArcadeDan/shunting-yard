@@ -3,9 +3,7 @@ use std::{collections::VecDeque, io, ops::Deref, str::Chars};
 #[derive(Debug, Copy, Clone, PartialEq)]
 enum TSet {
     INT,
-    WORD,
     OPERATOR(Operators),
-    WSPACE,
     FLOAT,
     OPARAM,
     CPARAM,
@@ -17,6 +15,7 @@ enum Operators {
     MUL,
     DIV,
     POW,
+    MOD
 }
 #[derive(PartialEq, Debug)]
 enum Assoc {
