@@ -226,6 +226,10 @@ fn main() -> io::Result<()> {
         stdout().flush()?;
         stdin().read_line(&mut buffer);
 
+        if buffer.trim().eq("!q") {
+            break;
+        }
+        
         // token creation
         let tokens: Vec<Token> = buffer
             .chars()
@@ -240,9 +244,8 @@ fn main() -> io::Result<()> {
         let result = evaluate(&buffer, (postfix.into()));
         println!("{}", result);
 
-        if buffer.trim().eq("!q") {
-            break;
-        }
+        
+        
         buffer.clear();
         //output_queue.clear();
         //operator_stack.clear();
