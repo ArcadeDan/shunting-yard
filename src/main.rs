@@ -72,7 +72,7 @@ impl Token {
 }
 
 fn guard_integer(c: char) -> bool {
-    return c.is_numeric() || [',', '_'].contains(&c);
+    return c.is_numeric() || ['.', '_'].contains(&c);
 }
 
 fn tokenize_num(prev: Option<&mut Token>) -> Option<TSet> {
